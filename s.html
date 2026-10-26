@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="SSTool by Bas1cDark: a curated suite of Windows forensic tools including OrbDiff, Spokwn, NirSoft, and more.">
+<title>SSTool — Bas1cDark</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0d0d0d;color:#e5e5e5;overflow:hidden;-webkit-font-smoothing:antialiased}
+
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+#app{width:100%;height:100%;background:#0d0d0d;font-family:'Segoe UI',system-ui,sans-serif;color:#e5e5e5;display:flex;flex-direction:column;user-select:none;-webkit-user-select:none;animation:fadeIn 1s ease-out}
+
+.drag-handle{display:flex;align-items:center;justify-content:space-between;height:28px;padding:0 10px;background:#111;border-bottom:1px solid #1a1a1a;font-size:12px;cursor:default;user-select:none}
+.drag-handle .drag-title{color:#a3a3a3;font-size:11px;font-weight:500;letter-spacing:0.3px}
+.drag-handle .drag-title span{color:#ff0000;font-weight:600}
+.drag-handle .win-btns{display:flex;align-items:center;gap:10px}
+.drag-handle svg{cursor:pointer;opacity:0.5;transition:opacity 0.15s}
+.drag-handle svg:hover{opacity:1}
+
+.tab-bar{display:flex;align-items:center;gap:4px;padding:8px 8px 0;border-bottom:1px solid #1a1a1a;background:#0d0d0d;overflow-x:auto}
+.tab-bar::-webkit-scrollbar{height:3px}
+.tab-bar::-webkit-scrollbar-track{background:transparent}
+.tab-bar::-webkit-scrollbar-thumb{background:#2a2a2a;border-radius:2px}
+.tab-btn{display:flex;align-items:center;gap:6px;padding:8px 12px;font-size:12px;white-space:nowrap;border:none;background:transparent;color:#a3a3a3;cursor:pointer;border-bottom:2px solid transparent;transition:color 0.15s,border-color 0.15s;font-family:inherit}
+.tab-btn:hover{color:#e5e5e5}
+.tab-btn.active{color:#ef4444;border-bottom-color:#ff0000}
+.tab-btn svg{flex-shrink:0}
+
+.content-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px}
+.content-header h1{font-size:13px;font-weight:400;color:#d4d4d4}
+.content-header h1 span{color:#a3a3a3}
+.btn-dl-all{font-size:12px;padding:6px 14px;border:1px solid rgba(255, 170, 213, 0.4);border-radius:4px;background:transparent;color:#e4005f;cursor:pointer;transition:background 0.15s;box-shadow:0 0 8px rgba(209, 0, 0, 0.15);font-family:inherit}
+.btn-dl-all:hover{background:rgba(221,170,255,0.12)}
+
+.tool-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:0 20px 48px;min-height:0;flex:1;overflow-y:auto;align-content:start;scrollbar-width:thin;scrollbar-color:#662a2a transparent}
+.tool-grid::-webkit-scrollbar{width:10px}
+.tool-grid::-webkit-scrollbar-track{background:transparent}
+.tool-grid::-webkit-scrollbar-thumb{background:linear-gradient(180deg,hsl(0, 100%, 11%),#3a0000);border-radius:6px;border:2px solid #0d0d0d;background-clip:padding-box}
+.tool-grid::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,#3a0000,#3a0000);background-clip:padding-box}
+.tool-card{position:relative;border-radius:6px;padding:16px;height:110px;border:1px solid #2a2a2a;cursor:pointer;background:rgba(18,18,18,0.88);transition:background 0.8s ease-out,border-color 0.8s ease-out;display:flex;flex-direction:column}
+.tool-card:hover{background:rgba(30, 10, 10, 0.9);border-color:#3a000099;box-shadow:0 0 16px #3a000033;transition-duration:0.1s}
+.tool-card .name{font-size:13px;font-weight:500;color:#f5f5f5;margin-bottom:8px}
+.tool-card .desc{font-size:12px;color:#a3a3a3;line-height:1.4;flex:1}
+.tool-card .progress-wrap{position:absolute;bottom:1px;left:1px;right:1px;height:3px;background:#1a1a1a;border-radius:0 0 5px 5px;overflow:hidden}
+.tool-card .progress-bar{height:100%;background:linear-gradient(90deg,#3a0000,#3a0000);transition:width 0.3s;width:0}
+.tool-card .progress-bar.indeterminate{width:35%!important;animation:indeterminate 1.3s ease-in-out infinite;background:linear-gradient(90deg,#3a0000,#3a0000,#3a0000);background-size:200% 100%}
+.tool-card .cooldown-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.5);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#a3a3a3;backdrop-filter:blur(2px)}
+.tool-card .dl-indicator{position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:#2a2a2a}
+.tool-card .dl-indicator.downloaded{background:#22c55e}
+.tool-card .dl-indicator.downloading{background:#3a0000;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+
+
+
+@keyframes indeterminate{0%{transform:translateX(-100%)}50%{transform:translateX(200%)}100%{transform:translateX(400%)}}
+@keyframes toastIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(24px)}}
+#toast-stack{position:fixed;right:14px;bottom:14px;z-index:90;display:flex;flex-direction:column-reverse;gap:6px;pointer-events:none;max-width:280px}
+.dl-toast{pointer-events:auto;background:#111114;border:1px solid #232328;border-left:3px solid #d99a3f;border-radius:4px;padding:7px 10px;font-size:11.5px;box-shadow:0 6px 20px rgba(0,0,0,0.45);animation:toastIn 0.18s ease-out;overflow:hidden}
+.dl-toast.closing{animation:toastOut 0.18s ease-in forwards}
+.dl-toast .dl-toast-text{color:#d4d4d4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dl-toast .dl-toast-tag{font-weight:600;margin-right:2px}
+.dl-toast.downloading .dl-toast-tag{color:#e0a83f}
+.dl-toast.downloading .dl-toast-bar{margin-top:6px;height:3px;background:#1a1a1a;border-radius:2px;overflow:hidden}
+.dl-toast.downloading .dl-toast-fill{height:100%;background:linear-gradient(90deg,#e0a83f,#d97b3f);border-radius:2px;transition:width 0.25s;width:0}
+.dl-toast.downloading .dl-toast-fill.indeterminate{width:30%!important;animation:indeterminate 1.3s ease-in-out infinite;background:linear-gradient(90deg,#e0a83f,#d97b3f,#e0a83f);background-size:200% 100%}
+.dl-toast.success{border-left-color:#22c55e}
+.dl-toast.success .dl-toast-tag{color:#22c55e}
+.dl-toast.error{border-left-color:#ef4444}
+.dl-toast.error .dl-toast-tag{color:#ef4444}
+
+#confirm-overlay{position:fixed;inset:0;z-index:95;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.6)}
+#confirm-overlay.show{display:flex}
+.confirm-dialog{background:#0d0d14;border:1px solid #1a1a24;border-radius:10px;padding:24px;width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.5)}
+.confirm-dialog h3{font-size:14px;color:#e5e5e5;margin-bottom:8px}
+.confirm-dialog p{font-size:13px;color:#a3a3a3;margin-bottom:16px;line-height:1.5}
+.confirm-buttons{display:flex;justify-content:flex-end;gap:10px}
+.confirm-buttons button{font-size:12px;padding:8px 16px;border-radius:4px;border:none;cursor:pointer;transition:all 0.15s;font-family:inherit}
+.confirm-buttons .btn-no{background:#1a1a24;color:#a3a3a3}
+.confirm-buttons .btn-no:hover{background:#2a2a3a}
+.confirm-buttons .btn-yes{background:linear-gradient(135deg,#350303,#570404);color:#fff}
+
+.empty-state{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;color:#525252;font-size:13px;gap:8px}
+.empty-state svg{opacity:0.4;margin-bottom:4px}
+
+@media(max-width:800px){.tool-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.tool-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:420px){.tool-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body onselectstart="return false">
+
+<div id="app">
+  <div class="drag-handle" id="dragHandle">
+    <span class="drag-title"><span>SSTool</span> — Bas1cDark</span>
+    <span class="win-btns">
+      <svg onclick="tryBridge('minimize')" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <svg onclick="tryBridge('closeApp')" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </span>
+  </div>
+
+  <div class="tab-bar" id="tabBar"></div>
+
+  <div class="content-header">
+    <h1 id="section-heading"></h1>
+    <button class="btn-dl-all" id="btn-dl-all" onclick="downloadAllTools()">Download All</button>
+  </div>
+
+  <div class="tool-grid" id="toolGrid"></div>
+</div>
+
+
+<div id="toast-stack"></div>
+
+<div id="confirm-overlay">
+  <div class="confirm-dialog">
+    <h3 id="confirmTitle">Launch Tool</h3>
+    <p id="confirmBody">This will run the tool from the tools folder. Proceed?</p>
+    <div class="confirm-buttons">
+      <button class="btn-no" onclick="cancelLaunch()">Cancel</button>
+      <button class="btn-yes" onclick="confirmLaunch()">Launch</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const icons = {
+  search: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+  circle: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>',
+  menu: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>',
+  fileCode: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+  cpu: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>',
+  user: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+  asterisk: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14"/></svg>',
+  boxes: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+  cat: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="12" cy="16" r="5"/><circle cx="6" cy="8" r="3"/><circle cx="12" cy="6" r="3"/><circle cx="18" cy="8" r="3"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+  download: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+  play: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+  script: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+};
+
+const tabs = [
+  { key: 'orbdiff', label: 'OrbDiff', icon: icons.circle, header: 'Tools developed by OrbDiff — <span>github.com/orbdiff</span>' },
+  { key: 'spokwn', label: 'Spokwn', icon: icons.menu, header: 'Tools developed by Spokwn — <span>github.com/spokwn</span>' },
+  { key: 'tonynoh', label: 'Tonynoh', icon: icons.cat, header: 'Tools developed by Tonynoh — <span>github.com/meowtonynoh</span>' },
+  { key: 'detectac', label: 'DetectAC', icon: icons.lock, header: 'Tools developed by DetectAC — <span>detect.ac</span>' },
+  { key: 'scripts', label: 'Scripts', icon: icons.script, header: 'Useful PowerShell scripts for forensic analysis' },
+  { key: 'nirsoft', label: 'NirSoft', icon: icons.cpu, header: 'NirSoft utilities — <span>nirsoft.net</span>' },
+  { key: 'ericzimmerman', label: 'EricZimmerman', icon: icons.user, header: 'Eric Zimmerman\'s forensic tools — <span>ericzimmerman.github.io</span>' },
+  { key: 'others', label: 'Others', icon: icons.asterisk, header: 'Various forensic tools from the community' },
+  { key: 'dependencies', label: 'Dependencies', icon: icons.boxes, header: 'Required runtimes and dependencies' },
+];
+
+const tools = [
+
+  { name: 'Prefetch View++', desc: 'Parses prefetch extracting file info', link: 'https://github.com/Orbdiff/PrefetchView/releases/download/v1.6.7/pv++.exe', category: 'orbdiff' },
+  { name: 'BAM Reveal', desc: 'Parses BAM forensic artefact', link: 'https://github.com/Orbdiff/BAMReveal/releases/latest/download/BAMReveal.exe', category: 'orbdiff' },
+  { name: 'Amcache Parser', desc: 'Parses AMCache with YARA + signatures', link: 'https://github.com/Orbdiff/AmcacheParser/releases/latest/download/AmcacheParser.exe', category: 'orbdiff' },
+  { name: 'Journal Parser', desc: 'Parses NTFS USNJournal entries', link: 'https://github.com/Orbdiff/JournalParser/releases/latest/download/JournalParser.exe', category: 'orbdiff' },
+  { name: 'Check Deleted USN', desc: 'Compares USN timestamp vs boot time', link: 'https://github.com/Orbdiff/CheckDeletedUSN/releases/latest/download/CheckDeletedUSN.exe', category: 'orbdiff' },
+  { name: 'Fileless', desc: 'Detect fileless via eventlog + memdump', link: 'https://github.com/Orbdiff/Fileless/releases/latest/download/fileless.exe', category: 'orbdiff' },
+  { name: 'JAR Parser', desc: 'Parses JAR prefetch, DcomLaunch strings, etc', link: 'https://github.com/Orbdiff/JARParser/releases/latest/download/JARParser.exe', category: 'orbdiff' },
+  { name: 'PF Trace', desc: 'Rundll32/Regsvr32 prefetch analysis', link: 'https://github.com/Orbdiff/PFTrace/releases/latest/download/PFTrace.exe', category: 'orbdiff' },
+  { name: 'InjGen', desc: 'Detects JNI/JVMTI memory injections', link: 'https://github.com/Orbdiff/InjGen/releases/latest/download/InjGen.exe', category: 'orbdiff' },
+  { name: 'DPS Analyzer', desc: 'Analyzes DPS memory', link: 'https://github.com/Orbdiff/DPS-Analyzer/releases/latest/download/dpsanalyzer.exe', category: 'orbdiff' },
+  { name: 'USB Detector', desc: 'Detects USB device history', link: 'https://github.com/Orbdiff/USBDetector/releases/latest/download/USBDetector.exe', category: 'orbdiff' },
+  { name: 'User Assist View', desc: 'Parser UserAssist artifact', link: 'https://github.com/Orbdiff/UserAssistView/releases/latest/download/UserAssistView.exe', category: 'orbdiff' },
+  { name: 'Strings Parser', desc: 'Strings + YARA + signatures scanner', link: 'https://github.com/Orbdiff/StringsParser/releases/download/v1.2/stringsparser1.2b.exe', category: 'orbdiff' },
+  { name: 'Bam Check Restart', desc: 'Detect the date of creation of the BAM', link: 'https://github.com/Orbdiff/BAM-CheckRestart/releases/download/v2.0.2/BAMCheckRestart.exe', category: 'orbdiff' },
+
+  { name: 'Activities Cache execution', desc: 'Gets the execution of files using the activitiescache.db', link: 'https://github.com/spokwn/ActivitiesCache-execution/releases/download/v0.6.5/ActivitiesCacheParser.exe', category: 'spokwn' },
+  { name: 'BAM Parser', desc: 'parses the BAM forensic artefact', link: 'https://github.com/spokwn/BAM-parser/releases/download/v1.2.9/BAMParser.exe', category: 'spokwn' },
+  { name: 'Bam Deleted Keys', desc: 'Gathers BAM deleted keys by comparing them with the hives keys.', link: 'https://github.com/spokwn/BamDeletedKeys/releases/download/v1.0/BamDeletedKeys.exe', category: 'spokwn' },
+  { name: 'Journal Trace', desc: 'Parses NTFS journal entries', link: 'https://github.com/spokwn/JournalTrace/releases/download/1.2/JournalTrace.exe', category: 'spokwn' },
+  { name: 'Pca Svc Executed', desc: 'pcasvc-executed is my fork of zack-srcs service-execution', link: 'https://github.com/spokwn/pcasvc-executed/releases/download/v0.8.7/PcaSvcExecuted.exe', category: 'spokwn' },
+  { name: 'Espouken Tool', desc: 'A lot of tools', link: 'https://github.com/spokwn/Tool/releases/download/v1.1.3/espouken.exe', category: 'spokwn' },
+  { name: 'Process Parser', desc: 'Parses processes using xxstrings', link: 'https://github.com/spokwn/process-parser/releases/download/v0.5.5/ProcessParser.exe', category: 'spokwn' },
+  { name: 'Paths Parser', desc: 'Parses info about paths on a .txt', link: 'https://github.com/spokwn/PathsParser/releases/download/v1.2/PathsParser.exe', category: 'spokwn' },
+  
+  { name: 'Meow Resolver', desc: 'Detector and Resolver tool to detect some shitty bypasses', link: 'https://github.com/MeowTonynoh/MeowResolver/releases/download/v.1.1/MeowResolver.exe', category: 'tonynoh' },
+  { name: 'Meow Doomsday Fucker', desc: 'Best Doomsday Finder ', link: 'https://github.com/MeowTonynoh/MeowDoomsdayFucker/releases/download/V.1.5/MeowDoomsdayFucker.exe', category: 'tonynoh' },
+  { name: 'Meow Client Fucker', desc: '2nd Best Scanner !', link: 'https://github.com/MeowTonynoh/MeowClientFucker/releases/download/V1.1/MeowClientFucker.exe', category: 'tonynoh' },
+  { name: 'Meow Imports Checker', desc: 'The best file checker !', link: 'https://github.com/MeowTonynoh/MeowImportsChecker/releases/download/MeowImportsChecker/MeowImportsChecker.exe', category: 'tonynoh' },
+  
+  { name: 'Amcache Parser++', desc: 'High-performance Amcache parser with YARA + VirusTotal', link: 'https://github.com/detect-ac/Detect.ac-Free-Tools/releases/download/FreeTools/AmcacheParser++.exe', category: 'detectac' },
+  { name: 'Autoruns++', desc: 'Rebuilt Autoruns alternative with USN monitoring and signature verification', link: 'https://github.com/detect-ac/Detect.ac-Free-Tools/releases/download/FreeTools/Autoruns++.exe', category: 'detectac' },
+  { name: 'Bam Parser++', desc: 'BAM execution history with YARA engine and tamper detection', link: 'https://github.com/detect-ac/Detect.ac-Free-Tools/releases/download/FreeTools/BamParser++.exe', category: 'detectac' },
+  { name: 'Browser Downloads View++', desc: 'Multi-browser download history with USN modification highlighting', link: 'https://github.com/detect-ac/Detect.ac-Free-Tools/releases/download/FreeTools/BrowserDownloadsView++.exe', category: 'detectac' },
+  { name: 'Browsing History View++', desc: 'Multi-browser history with suspicious domain flagging + VT links', link: 'https://github.com/detect-ac/Detect.ac-Free-Tools/releases/download/FreeTools/BrowsingHistoryView++.exe', category: 'detectac' },
+  { name: 'Crashed File Viewer++', desc: 'Unified view of Windows crash artifacts with USN highlighting', link: 'https://github.com/detect-ac/Detect.ac-Free-Tools/releases/download/FreeTools/CrashedFileViewer++.exe', category: 'detectac' },
+  { name: 'Journal Trace++', desc: 'USN Journal analysis with bypass detections and filtering', link: 'https://github.com/detect-ac/Detect.ac-Free-Tools/releases/download/FreeTools/JournalTrace++.exe', category: 'detectac' },
+  { name: 'Kernel Live Dump++', desc: 'Dumps Kernel/User-mode RAM with filterable string results', link: 'https://github.com/detect-ac/Detect.ac-Free-Tools/releases/download/FreeTools/KernelLiveDump++.exe', category: 'detectac' },
+  { name: 'MFT Explorer++', desc: 'Defined $MFT view with suspicious ADS identification', link: 'https://github.com/detect-ac/Detect.ac-Free-Tools/releases/download/FreeTools/MFTExplorer++.exe', category: 'detectac' },
+  { name: 'Paths Parser++', desc: 'Paths parser GUI with YARA support and a USN journal viewer', link: 'https://github.com/detect-ac/Detect.ac-Free-Tools/releases/download/FreeTools/PathsParser++.exe', category: 'detectac' },
+  { name: 'PowerShell Parser++', desc: 'Scrapes PowerShell history artifacts with bypass detection', link: 'https://github.com/detect-ac/Detect.ac-Free-Tools/releases/download/FreeTools/PowerShellParser++.exe', category: 'detectac' },
+  { name: 'Saved Files Viewer++', desc: 'Shows every file saved to disk with cross-referenced timestamps', link: 'https://github.com/detect-ac/Detect.ac-Free-Tools/releases/download/FreeTools/SavedFilesViewer++.exe', category: 'detectac' },
+  { name: 'SRUM Explorer++', desc: 'Maps file paths and services from SRUM with YARA + USN tracking', link: 'https://github.com/detect-ac/Detect.ac-Free-Tools/releases/download/FreeTools/SRUMExplorer++.exe', category: 'detectac' },
+  { name: 'String Explorer++', desc: 'Navigate an exe\'s full string data, entropy, and VirusTotal integration', link: 'https://github.com/detect-ac/Detect.ac-Free-Tools/releases/download/FreeTools/StringExplorer++.exe', category: 'detectac' },
+  { name: 'USB Deview++', desc: 'Aggregated USB device logs cross-referenced against DeviceHunt', link: 'https://github.com/detect-ac/Detect.ac-Free-Tools/releases/download/FreeTools/USBDeview++.exe', category: 'detectac' },
+  { name: 'Win Prefetch View++', desc: 'WinPrefetchView with bypass detections and YARA rule support', link: 'https://github.com/detect-ac/Detect.ac-Free-Tools/releases/download/FreeTools/WinPrefetchView++.exe', category: 'detectac' },
+
+  { name: 'Full Event Log View', desc: 'View Windows event logs', link: 'https://www.nirsoft.net/utils/fulleventlogview-x64.zip', category: 'nirsoft' },
+  { name: 'Network Usage View', desc: 'Monitor network usage', link: 'https://www.nirsoft.net/utils/networkusageview-x64.zip', category: 'nirsoft' },
+  { name: 'Browser Downloads View', desc: 'View browser download history', link: 'https://www.nirsoft.net/utils/browserdownloadsview-x64.zip', category: 'nirsoft' },
+  { name: 'Alternate Stream View', desc: 'View NTFS alternate data streams', link: 'https://www.nirsoft.net/utils/alternatestreamview-x64.zip', category: 'nirsoft' },
+  { name: 'USB Deview', desc: 'Manage USB devices', link: 'https://www.nirsoft.net/utils/usbdeview-x64.zip', category: 'nirsoft' },
+  { name: 'Open Save Files View', desc: 'View Open/Save dialog history', link: 'https://www.nirsoft.net/utils/opensavefilesview-x64.zip', category: 'nirsoft' },
+  { name: 'Executed Programs List', desc: 'List executed programs', link: 'https://www.nirsoft.net/utils/executedprogramslist.zip', category: 'nirsoft' },
+  { name: 'Task Scheduler View', desc: 'View scheduled tasks', link: 'https://www.nirsoft.net/utils/taskschedulerview-x64.zip', category: 'nirsoft' },
+  { name: 'Jump Lists View', desc: 'View Windows Jump Lists', link: 'https://www.nirsoft.net/utils/jumplistsview.zip', category: 'nirsoft' },
+  { name: 'Win Prefetch View', desc: 'View Windows Prefetch files', link: 'https://www.nirsoft.net/utils/winprefetchview-x64.zip', category: 'nirsoft' },
+  { name: 'Reg Scanner', desc: 'Advanced Registry scanner', link: 'https://www.nirsoft.net/utils/regscanner-x64.zip', category: 'nirsoft' },
+  { name: 'ShellBags View', desc: 'View ShellBags entries', link: 'https://www.nirsoft.net/utils/shellbagsview.zip', category: 'nirsoft' },
+  { name: 'Loaded DLL View', desc: 'View ShellBags entries', link: 'https://www.nirsoft.net/utils/loadeddllsview-x64.zip', category: 'nirsoft' },
+ 
+  { name: 'Amcache Parser', desc: 'Parse Amcache.hve', link: 'https://download.ericzimmermanstools.com/net9/AmcacheParser.zip', category: 'ericzimmerman' },
+  { name: 'bstrings', desc: 'String extractor', link: 'https://download.ericzimmermanstools.com/net9/bstrings.zip', category: 'ericzimmerman' },
+  { name: 'EvtxECmd', desc: 'Event log parser', link: 'https://download.ericzimmermanstools.com/net9/EvtxECmd.zip', category: 'ericzimmerman' },
+  { name: 'Jump List Explorer', desc: 'Jump List explorer', link: 'https://download.ericzimmermanstools.com/net9/JumpListExplorer.zip', category: 'ericzimmerman' },
+  { name: 'MFTECmd', desc: 'MFT parser', link: 'https://download.ericzimmermanstools.com/net9/MFTECmd.zip', category: 'ericzimmerman' },
+  { name: 'PECmd', desc: 'Prefetch parser', link: 'https://download.ericzimmermanstools.com/net9/PECmd.zip', category: 'ericzimmerman' },
+  { name: 'Registry Explorer', desc: 'Registry viewer', link: 'https://download.ericzimmermanstools.com/net9/RegistryExplorer.zip', category: 'ericzimmerman' },
+  { name: 'ShellBags Explorer', desc: 'ShellBags viewer', link: 'https://download.ericzimmermanstools.com/net9/ShellBagsExplorer.zip', category: 'ericzimmerman' },
+  { name: 'SrumECmd', desc: 'SRUM parser', link: 'https://download.ericzimmermanstools.com/net9/SrumECmd.zip', category: 'ericzimmerman' },
+  { name: 'Timeline Explorer', desc: 'Timeline explorer', link: 'https://download.ericzimmermanstools.com/net9/TimelineExplorer.zip', category: 'ericzimmerman' },
+  { name: 'App Compat Cache Parser', desc: 'App Compat Cache Parser', link: 'https://download.ericzimmermanstools.com/net9/AppCompatCacheParser.zip', category: 'ericzimmerman' },
+  
+  { name: 'RedLotus Alt Checker', desc: 'check pc and found alts ', link: 'https://github.com/ItzIceHere/RedLotusAltChecker/releases/download/RL/RedLotusAltChecker.exe', category: 'others' },
+  { name: 'RedLotus mod analyzer', desc: 'Found the jar file and scan ', link: 'https://github.com/ItzIceHere/RedLotus-Mod-Analyzer/releases/download/RL/RedLotusModAnalyzer.exe', category: 'others' },
+  { name: 'Jarabel', desc: 'Locate all .jar files (or most of them) on a computer', link: 'https://github.com/nay-cat/Jarabel/releases/download/light/Jarabel.Light.exe', category: 'others' },
+  { name: 'Luyten', desc: 'Open Source Java Decompiler Gui for Procyon', link: 'https://github.com/deathmarine/Luyten/releases/download/v0.5.4_Rebuilt_with_Latest_depenencies/luyten-0.5.4.exe', category: 'others' },
+  { name: 'VM Aware', desc: 'Advanced VM detection library and tool', link: 'https://github.com/NotRequiem/VMAware/releases/download/v2.8.0/vmaware.exe', category: 'others' },
+  { name: 'NTFS Parser', desc: 'Forensics tool for NTFS', link: 'https://github.com/thewhiteninja/ntfstool/releases/download/v1.7/ntfstool.x64.exe', category: 'others' },
+  { name: 'Hayabusa', desc: 'Threat hunting and fast forensics timeline generator', link: 'https://github.com/Yamato-Security/hayabusa/releases/download/v3.10.0/hayabusa-3.10.0-all-platforms.zip', category: 'others' },
+  { name: 'Everything', desc: 'Locate files and folders by name instantly.', link: 'https://www.voidtools.com/Everything-1.4.1.1032.x64-Setup.exe', category: 'others' },
+  { name: 'HxD', desc: 'HxD Hex Editor', link: 'https://mh-nexus.de/downloads/HxDSetup.zip', category: 'others' },
+  { name: 'P1AE Javaw', desc: 'Best Javaw scanner', link: 'https://github.com/p1aegg/javaw/releases/download/v1.12/P1AE.Javaw.exe', category: 'others' },
+  { name: 'Macro Scanner', desc: 'Lafferr Macro Scanner', link: 'https://github.com/Lafferrr/MacroScanner/releases/download/MAW/MacroScanner.exe', category: 'others' },
+  { name: 'String Checker', desc: 'Lafferrs Strings Checker', link: 'https://github.com/Lafferrr/SSTools/raw/refs/heads/main/SSTools/Strings/LaffersStringsChecker.exe', category: 'others' },
+  { name: 'Java Library Analyzer', desc: 'Lafferr Java Library Analyzer', link: ['https://github.com/Lafferrr/SSTools/raw/refs/heads/main/SSTools/JavaLibraryAnalyzer/JavaLibraryAnalyzer.exe', 'https://github.com/Lafferrr/SSTools/raw/refs/heads/main/SSTools/JavaLibraryAnalyzer/library_baseline.bin', 'https://github.com/Lafferrr/SSTools/raw/refs/heads/main/SSTools/JavaLibraryAnalyzer/natives_baseline.bin'], category: 'others' },
+  { name: 'PJ Cheat Scanner Lite', desc: 'String Checker', link: ['https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/1.1/PjCheatScannerLite.exe', 'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/1.1/cheat_strings.txt'], category: 'others' },
+  { name: 'System Informer', desc: 'Process viewer n shi', link: 'https://github.com/winsiderss/si-builds/releases/download/4.0.26115.206/systeminformer-build-canary-setup.exe', category: 'others' },
+  
+  { name: 'NET 8.0', desc: 'Install .NET 8.0 runtime', link: 'https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/sdk-8.0.423-windows-x64-installer', category: 'dependencies' },
+  { name: 'NET 9.0', desc: 'Install .NET 9.0 runtime', link: 'https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/9.0.11/windowsdesktop-runtime-9.0.11-win-x64.exe', category: 'dependencies' },
+  { name: 'NET 10.0', desc: 'Install .NET 10.0 runtime', link: 'https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/10.0.10/windowsdesktop-runtime-10.0.10-win-x64.exe', category: 'dependencies' },
+  { name: 'VSRedist', desc: 'Install Visual C++ Redistributable', link: 'https://aka.ms/vc14/vc_redist.x64.exe', category: 'dependencies' },
+];
+
+const scripts = [
+  { name: 'Running Processes', desc: 'Lists all running processes', cmd: 'Get-Process | Sort-Object CPU -Descending | Format-Table Name,ID,CPU,WorkingSet -AutoSize' },
+  { name: 'Services Checker', desc: 'Runs Nicc/services-checker from GitHub', cmd: "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/NiccBlahh/ServiceChecker/refs/heads/main/ServiceChecker.ps1')" },
+  { name: 'Zeezy Services', desc: 'Runs zeezyexe services checker', cmd: "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/zeezyexe/services-checker/refs/heads/main/zeezyservices.psl')" },
+  { name: "P1ae's Mod Analyzer", desc: 'Runs p1aegg mod analyzer', cmd: "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/p1aegg/powershell/refs/heads/main/ModAnalyzer.ps1')" },
+  { name: 'JAR Parser', desc: 'Parses JAR files', cmd: "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/l4rpsucks/Scripts/refs/heads/main/JARParser.ps1')" },
+  { name: 'Fileless Bypass Detection', desc: 'Detects fileless bypass techniques', cmd: "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/l4rpsucks/Scripts/refs/heads/main/FilelessBypassDetection.ps1')" },
+  { name: 'Macro Scanner', desc: 'Scans for mouse software macros (zeezy)', cmd: "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/zeezyexe/macro-scanner/refs/heads/main/catchmacro.ps1')" },
+  { name: 'ClassLoader Dump', desc: 'Dumps ClassLoader data', cmd: "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/p1aegg/powershell/refs/heads/main/ClassLoaderDump.ps1')" },
+  { name: "Yarp's Mod Analyzer", desc: 'Runs YarpLetapStan mod analyzer v6.0', cmd: "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/YarpLetapStan/PowershellScripts/refs/heads/main/YarpsModAnalyzer6.0.ps1')" },
+  { name: 'Meow Mod Analyzer', desc: 'Runs MeowTonynoh mod analyzer', cmd: "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/MeowTonynoh/MeowModAnalyzer/main/MeowModAnalyzer.ps1')" },
+  { name: 'Prefetch Integrity Analyzer', desc: 'Analyzes prefetch integrity (RedLotus)', cmd: "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/bacanoicua/Screenshare/main/RedLotusPrefetchIntegrityAnalyzer.ps1')" },
+  { name: 'Recording Killer', desc: 'Kill recording processes', cmd: "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/Orbdiff/powershell/refs/heads/main/kill-screen-processes.ps1')" },
+  { name: 'Lily Services', desc: 'Runs PraiseLilys services checker', cmd: "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/praiselily/lilith-ps/refs/heads/main/Services.ps1')" },
+  { name: "P1ae's Services Enabler", desc: 'Runs services enabler', cmd: "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/p1aegg/powershell/refs/heads/main/Services.ps1')" },
+  { name: 'Meow Faker', desc: 'Runs Meow Faker', cmd: "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/MeowTonynoh/MeowFakerDetector/refs/heads/main/MeowFakerDetector.ps1')" },
+];
+
+let activeTab = 'orbdiff';
+let cooldowns = {};
+let batchDownloadActive = false;
+let batchPending = new Set();
+let pendingLaunch = null;
+
+let mockInterval = null;
+const downloadedCache = {};
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('selectstart', (e) => e.preventDefault());
+
+  const handle = document.getElementById('dragHandle');
+  if (handle) {
+    handle.addEventListener('mousedown', (e) => {
+      if (e.target.tagName !== 'svg' && e.target.tagName !== 'line') {
+        tryBridge('startWindowDrag');
+      }
+    });
+  }
+});
+
+function renderTabs() {
+  const bar = document.getElementById('tabBar');
+  bar.innerHTML = '';
+  tabs.forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn' + (t.key === activeTab ? ' active' : '');
+    btn.innerHTML = t.icon + (t.label ? '<span>' + t.label + '</span>' : '');
+    btn.onclick = () => switchTab(t.key);
+    bar.appendChild(btn);
+  });
+}
+
+function switchTab(key) {
+  activeTab = key;
+  renderTabs();
+  renderTools();
+  document.getElementById('btn-dl-all').style.display = (activeTab === 'scripts' ? 'none' : '');
+  const t = tabs.find(t => t.key === key);
+  if (t && t.header) document.getElementById('section-heading').innerHTML = t.header;
+}
+
+function renderTools() {
+  const grid = document.getElementById('toolGrid');
+  grid.innerHTML = '';
+
+  let items;
+  if (activeTab === 'scripts') {
+    items = scripts.map(s => ({ ...s, isScript: true })).sort((a, b) => a.name.localeCompare(b.name));
+  } else {
+    items = tools.filter(t => t.category === activeTab);
+    if (activeTab !== 'dependencies') {
+      items = items.slice().sort((a, b) => a.name.localeCompare(b.name));
+    }
+  }
+
+  if (items.length === 0) {
+    grid.innerHTML = '<div class="empty-state">' + icons.asterisk + '<span>No tools in this category</span></div>';
+    return;
+  }
+
+  items.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'tool-card';
+    card.dataset.name = item.name || item.name;
+
+    let html = '<div class="name">' + (item.name || item.name) + '</div>';
+    html += '<div class="desc">' + (item.desc || '') + '</div>';
+    html += '<div class="dl-indicator" id="dl-' + (item.name || item.name) + '"></div>';
+    html += '<div class="progress-wrap"><div class="progress-bar" id="prog-' + (item.name || item.name) + '"></div></div>';
+
+    card.innerHTML = html;
+    card.onclick = () => handleToolClick(item);
+    grid.appendChild(card);
+
+    updateIndicator(item.name || item.name, 'checking');
+  });
+}
+
+function updateIndicator(name, state) {
+  const dot = document.getElementById('dl-' + name);
+  if (!dot) return;
+  dot.className = 'dl-indicator';
+  if (state === 'downloaded') dot.classList.add('downloaded');
+  else if (state === 'downloading') dot.classList.add('downloading');
+}
+
+function updateProgress(name, percent) {
+  const bar = document.getElementById('prog-' + name);
+  if (bar) {
+    bar.classList.remove('indeterminate');
+    bar.style.width = Math.min(percent, 100) + '%';
+  }
+  updateIndicator(name, 'downloading');
+}
+
+function updateProgressIndeterminate(name) {
+  const bar = document.getElementById('prog-' + name);
+  if (bar) bar.classList.add('indeterminate');
+  updateIndicator(name, 'downloading');
+}
+
+function handleToolClick(item) {
+  if (item._cooldown) return;
+
+  if (item.isScript) {
+    tryBridge('openScript', item.cmd);
+    return;
+  }
+
+  const name = item.name;
+  const urls = Array.isArray(item.link) ? item.link : [item.link];
+
+  updateIndicator(name, 'downloading');
+  showToast(name);
+  tryBridge('downloadTool', name, JSON.stringify(urls), item.category || activeTab);
+}
+
+const toastTimers = {};
+
+function toastId(name) {
+  return 'toast-' + name.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function showToast(name) {
+  if (toastTimers[name]) { clearTimeout(toastTimers[name]); delete toastTimers[name]; }
+  const stack = document.getElementById('toast-stack');
+  let el = document.getElementById(toastId(name));
+  if (!el) {
+    el = document.createElement('div');
+    el.id = toastId(name);
+    stack.appendChild(el);
+  }
+  el.className = 'dl-toast downloading';
+  el.innerHTML =
+    '<div class="dl-toast-text"><span class="dl-toast-tag">[0%]</span>Downloading ' + name + '</div>' +
+    '<div class="dl-toast-bar"><div class="dl-toast-fill indeterminate"></div></div>';
+}
+
+function updateToastProgress(name, percent, label) {
+  const el = document.getElementById(toastId(name));
+  if (!el) return;
+  el.className = 'dl-toast downloading';
+  const tag = el.querySelector('.dl-toast-tag');
+  const fill = el.querySelector('.dl-toast-fill');
+  if (percent !== null) {
+    tag.textContent = '[' + Math.min(percent, 100) + '%]';
+    fill.classList.remove('indeterminate');
+    fill.style.width = Math.min(percent, 100) + '%';
+  } else {
+    tag.textContent = label ? '[' + label + ']' : '[...]';
+    fill.classList.add('indeterminate');
+  }
+}
+
+function completeToast(name, success) {
+  const el = document.getElementById(toastId(name));
+  if (!el) return;
+  el.className = 'dl-toast ' + (success ? 'success' : 'error');
+  el.innerHTML = success
+    ? '<div class="dl-toast-text"><span class="dl-toast-tag">[+]</span>' + name + ' saved</div>'
+    : '<div class="dl-toast-text"><span class="dl-toast-tag">[-]</span>' + name + ' failed</div>';
+  toastTimers[name] = setTimeout(() => {
+    el.classList.add('closing');
+    setTimeout(() => el.remove(), 200);
+    delete toastTimers[name];
+  }, 3000);
+}
+
+function cancelCurrentDownload() {
+  tryBridge('cancelDownload');
+}
+
+function showConfirm(name, exePath) {
+  const overlay = document.getElementById('confirm-overlay');
+  overlay.classList.add('show');
+  document.getElementById('confirmTitle').textContent = 'Launch ' + name;
+  document.getElementById('confirmBody').textContent =
+    'This will run ' + name + ' from the tools folder. Proceed?';
+  pendingLaunch = { name, exePath };
+}
+
+function cancelLaunch() {
+  document.getElementById('confirm-overlay').classList.remove('show');
+  pendingLaunch = null;
+}
+
+function confirmLaunch() {
+  document.getElementById('confirm-overlay').classList.remove('show');
+  if (pendingLaunch) {
+    tryBridge('launchTool', pendingLaunch.exePath);
+    startCooldown(pendingLaunch.name);
+    pendingLaunch = null;
+  }
+}
+
+function startCooldown(name) {
+  cooldowns[name] = true;
+  const card = document.querySelector('.tool-card[data-name="' + name + '"]');
+  if (card) {
+    card.style.pointerEvents = 'none';
+    card.style.opacity = '0.5';
+    const overlay = document.createElement('div');
+    overlay.className = 'cooldown-overlay';
+    overlay.id = 'cd-' + name;
+    let sec = 5;
+    overlay.textContent = 'Cooldown ' + sec + 's';
+    card.appendChild(overlay);
+
+    const interval = setInterval(() => {
+      sec--;
+      if (sec <= 0) {
+        clearInterval(interval);
+        cooldowns[name] = false;
+        card.style.pointerEvents = '';
+        card.style.opacity = '';
+        const el = document.getElementById('cd-' + name);
+        if (el) el.remove();
+      } else {
+        overlay.textContent = 'Cooldown ' + sec + 's';
+      }
+    }, 1000);
+  }
+}
+
+function tryBridge(method, ...args) {
+  try {
+    if (window.chrome && window.chrome.webview) {
+      window.chrome.webview.postMessage(JSON.stringify({ method, args }));
+    }
+  } catch(e) {
+    console.warn('postMessage failed:', e);
+  }
+}
+
+window.handleCppMessage = function(jsonStr) {
+  try {
+    handleMessage(JSON.parse(jsonStr));
+  } catch(e) {
+    console.warn('handleCppMessage error:', e);
+  }
+};
+
+function setupMessageListener() {
+  try {
+    if (window.chrome && window.chrome.webview) {
+      window.chrome.webview.addEventListener('message', (e) => {
+        try {
+          const msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+          handleMessage(msg);
+        } catch(err) { console.warn('Invalid message:', e.data); }
+      });
+    }
+  } catch(e) {}
+}
+
+function fmtBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'progress':
+      if (msg.name) {
+        const val = msg.value || 0;
+        const total = msg.totalSize || 0;
+        if (total > 0) {
+          updateProgress(msg.name, val);
+          updateToastProgress(msg.name, val);
+        } else if (val === 0) {
+          updateProgressIndeterminate(msg.name);
+          updateToastProgress(msg.name, null, 'Starting...');
+        } else {
+          updateProgressIndeterminate(msg.name);
+          updateToastProgress(msg.name, null, fmtBytes(val));
+        }
+      }
+      break;
+    case 'downloadComplete':
+      if (msg.success && msg.name) {
+        updateIndicator(msg.name, 'downloaded');
+        downloadedCache[msg.name] = true;
+        updateProgress(msg.name, 100);
+        completeToast(msg.name, true);
+        if (msg.exePath && !msg.isZip) {
+          if (batchDownloadActive) {
+          } else {
+            tryBridge('launchTool', msg.exePath);
+            startCooldown(msg.name);
+          }
+        }
+      } else {
+        updateIndicator(msg.name, '');
+        completeToast(msg.name, false);
+      }
+      if (msg.name) markBatchItemDone(msg.name);
+      break;
+  }
+}
+
+function markBatchItemDone(name) {
+  if (!batchDownloadActive) return;
+  batchPending.delete(name);
+  if (batchPending.size === 0) {
+    batchDownloadActive = false;
+  }
+}
+
+function downloadAllTools() {
+  const items = (activeTab === 'scripts' ? scripts : tools.filter(t => t.category === activeTab));
+  const toDownload = items.filter(item => !item.isScript);
+  if (toDownload.length === 0) return;
+
+  batchDownloadActive = true;
+  batchPending = new Set(toDownload.map(item => item.name));
+
+  for (const item of toDownload) {
+    handleToolClick(item);
+  }
+}
+
+
+
+setupMessageListener();
+switchTab('orbdiff');
+</script>
+</body>
+</html>
